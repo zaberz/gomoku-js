@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width," initial-scale="1," maximum-scale="1">
+  <title>Title</title>
+</head>
+<body>
+
+<div class="">
+  <div>
+    棋盘宽高：<input type="text" name="size" id="size" value="3" placeholder="3">
+  </div>
+  <div>
+    获胜条件：<input type="text" name="n_in_row" id="n_in_row" value="3" placeholder="3">
+  </div>
+</div>
+<div>
+  <button id="start_train">开始训练</button>
+  <button id="stop_train">停止训练</button>
+  <button id="use_online_model">使用在线模型</button>
+  <button id="human_play">对战AI</button>
+</div>
+
+<div>
+  模型训练进度：
+  <p id="train_progress"></p>
+</div>
+<div class="board_container" id="board_container"></div>
+</body>
+</html>
