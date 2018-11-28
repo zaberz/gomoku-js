@@ -7,6 +7,16 @@ const nj = require('numjs');
 const {zip} = require('./utils');
 const tf = require('@tensorflow/tfjs');
 
+
+let a = tf.tensor([1,2,3,4,5,6,7,8,9],[3,3])
+let b = a.dataSync();
+let c = a.data().then(e=>{
+    console.log(e);
+})
+
+
+
+
 require('@tensorflow/tfjs-node');
 const Trainpipeline = require('./train');
 
@@ -24,7 +34,7 @@ let pure_mcts_player = new MCTS_Pure(5, pure_mcts_playout_num);
 //
 let win_cnt = {'-1': 0, '0': 0, '1': 0, '2': 0};
 
-let board = new Board(3, 3, 3);
+let board = new Board(6, 6, 4);
 let game = new Game(board);
 let n_games = 10;
 

@@ -27,7 +27,6 @@ module.exports = class Trainpipeline {
         this.n_playout = 400;
         this.c_puct = 5;
         this.buffer_size = 10000;
-        // todo
         this.data_buffer = [];
         this.play_batch_size = 1;
         this.kl_targ = 0.02;
@@ -137,19 +136,27 @@ module.exports = class Trainpipeline {
         }
         state_batch = nj.array(state_batch).reshape(-1, 4, this.board_width, this.board_height);
         let [old_probs, old_v] = this.policy_value_net.policy_value(state_batch);
+        old_probs = tf.tensor(old_probs);
         let loss;
         let entropy;
         let kl;
 
         for (let i of _.range(this.epochs)) {
+
             [loss, entropy] = await this.policy_value_net.train_step(state_batch, mcts_probs_batch, winner_batch, this.learn_rate * this.lr_multiplier);
+
             let [new_probs, new_v] = this.policy_value_net.policy_value(state_batch);
 
-            kl = tf.mean(tf.sum(old_probs.mul(tf.log(old_probs.add(1e-10)).sub(tf.log(new_probs.add(1e-10)))), 1));
-            kl = kl.dataSync()[0];
+            new_probs = tf.tensor(new_probs);
+            kl = tf.tidy(() => {
+                let kl = tf.mean(tf.sum(old_probs.mul(tf.log(old_probs.add(1e-10)).sub(tf.log(new_probs.add(1e-10)))), 1));
+                return kl.dataSync()[0];
+            });
+            new_probs.dispose();
             if (kl > this.kl_targ * 4) {
                 break;
             }
+
         }
 
         if (kl > this.kl_targ * 2 && this.lr_multiplier > 0.1) {
@@ -157,6 +164,8 @@ module.exports = class Trainpipeline {
         } else if (kl < this.kl_targ / 2 && this.lr_multiplier < 10) {
             this.lr_multiplier *= 1.5;
         }
+
+        old_probs.dispose();
 
         return [loss, entropy];
     }

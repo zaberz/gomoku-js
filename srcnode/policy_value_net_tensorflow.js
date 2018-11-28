@@ -112,14 +112,18 @@ module.exports = class PolicyValueNet {
             let model = this.model;
             // let [log_act_probs, value] = model.predict(state_batch);
             let q = tf.tensor(state_batch.tolist());
-
             let [log_act_probs, value] = model.predict(q);
-
+            // q.dispose();
             // todo
             let act_probs = tf.exp(log_act_probs);
+            let a = act_probs.dataSync();
+            a = [...a];
+            let shape = act_probs.shape;
+            act_probs = nj.array(a).reshape(shape).tolist();
             value = value.dataSync()[0];
             return [act_probs, value];
         });
+
         return res;
 
     }
@@ -132,12 +136,11 @@ module.exports = class PolicyValueNet {
 
         let current_state = board.current_state();
         let [act_probs, value] = this.policy_value(current_state);
-
-        let a = act_probs.dataSync();
-        a = legal_position.map(item => {
-            return a[item];
+        act_probs = act_probs[0];
+        act_probs = legal_position.map(item => {
+            return act_probs[item];
         });
-        act_probs = zip(legal_position, a);
+        act_probs = zip(legal_position, act_probs);
         return [act_probs, value];
 
     };
@@ -172,6 +175,8 @@ module.exports = class PolicyValueNet {
         let res = await this.model.fit(state_batch, [mcts_probs, winner_batch], {}).catch(e => {
             console.error(e);
         });
+
+        this.optimizer.dispose();
 
         state_batch.dispose();
         mcts_probs.dispose();
