@@ -117,7 +117,7 @@ module.exports = class PolicyValueNet {
 
             // todo
             let act_probs = tf.exp(log_act_probs);
-            value = value.dataSync();
+            value = value.dataSync()[0];
             return [act_probs, value];
         });
         return res;

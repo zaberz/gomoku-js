@@ -18,7 +18,7 @@ module.exports = class Trainpipeline {
 
         this.game_batch_num = 1500;
         this.batch_size = 512;
-        this.check_freq = 1;
+        this.check_freq = 20;
         this.epochs = 5;
 
         this.learn_rate = 2e-3;
@@ -169,7 +169,7 @@ module.exports = class Trainpipeline {
 
         for (let i of _.range(n_games)) {
             console.log(`评价模型第${i}局`);
-            let winner = this.game.start_play(current_mcts_player, pure_mcts_player, i % 2, 1);
+            let winner = this.game.start_play(current_mcts_player, pure_mcts_player, i % 2, 0);
             win_cnt[winner.toString()] += 1;
         }
         let win_ratio = (win_cnt['1'] + 0.5 * win_cnt['-1']) / n_games;

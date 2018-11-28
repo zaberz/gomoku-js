@@ -18,7 +18,7 @@ export default class Trainpipeline {
 
         this.game_batch_num = 1500;
         this.batch_size = 512;
-        this.check_freq = 1;
+        this.check_freq = 20;
         this.epochs = 5;
 
         this.learn_rate = 2e-3;

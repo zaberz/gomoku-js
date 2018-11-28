@@ -119,8 +119,6 @@ class MCTS {
         // state = game.state()
         let [action_probs, leaf_value] = this._policy(game);
 
-        leaf_value = leaf_value.dataSync()[0];
-
         // 检查是否游戏结束
         let [game_over, winner] = game.has_a_winner();
         // 没有结束，扩展节点，利用网络输出的先验概率

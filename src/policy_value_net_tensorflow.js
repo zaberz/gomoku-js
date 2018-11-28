@@ -77,13 +77,19 @@ export default class PolicyValueNet {
     }
 
     policy_value(state_batch) {
-        state_batch = nj.reshape(state_batch, [-1, 4, this.board_width, this.board_height]);
-        state_batch = nj.transpose(state_batch, [0, 2, 3, 1]);
-        let model = this.model;
-        let q = tf.tensor(state_batch.tolist());
+        let res = tf.tidy(()=>{
+            state_batch = nj.reshape(state_batch, [-1, 4, this.board_width, this.board_height]);
+            state_batch = nj.transpose(state_batch, [0, 2, 3, 1]);
+            let model = this.model;
+            let q = tf.tensor(state_batch.tolist());
 
-        let [log_act_probs, value] = model.predict(q);
-        return [log_act_probs, value];
+            let [log_act_probs, value] = model.predict(q);
+
+            let act_probs = tf.exp(log_act_probs);
+            value = value.dataSync()[0];
+            return [act_probs, value];
+        })
+        return res;
     }
 
     policy_value_fn(board) {
@@ -125,6 +131,10 @@ export default class PolicyValueNet {
             console.error(e);
             return res;
         });
+
+        state_batch.dispose();
+        mcts_probs.dispose();
+        winner_batch.dispose();
 
         return [res.history.loss[0], 1];
     }
