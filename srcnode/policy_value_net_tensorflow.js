@@ -5,7 +5,6 @@ const tf = require('@tensorflow/tfjs');
 
 const {zip} = require('./utils');
 
-
 class logSoftmax extends tf.layers.Layer {
     constructor(config) {
         super(config);
@@ -107,23 +106,22 @@ module.exports = class PolicyValueNet {
     policy_value(state_batch) {
         // input: a batch of states
         // output: a batch of action probabilities and state values
-        state_batch = nj.reshape(state_batch, [-1, 4, this.board_width, this.board_height]);
-        state_batch = nj.transpose(state_batch, [0, 2, 3, 1]);
-        let model = this.model;
-        // let [log_act_probs, value] = model.predict(state_batch);
-        let q = tf.tensor(state_batch.tolist());
+        let res = tf.tidy(() => {
+            state_batch = nj.reshape(state_batch, [-1, 4, this.board_width, this.board_height]);
+            state_batch = nj.transpose(state_batch, [0, 2, 3, 1]);
+            let model = this.model;
+            // let [log_act_probs, value] = model.predict(state_batch);
+            let q = tf.tensor(state_batch.tolist());
 
-        let [log_act_probs, value] = model.predict(q);
+            let [log_act_probs, value] = model.predict(q);
 
-        // todo
-        // log_act_probs = tf.log(log_act_probs);
-        let a = state_batch.tolist();
-        let b = log_act_probs.dataSync();
-        let act_probs = tf.exp(log_act_probs);
-        // act_probs = act_probs.dataSync();
-        let c = act_probs.dataSync();
-        value = value.dataSync();
-        return [act_probs, value];
+            // todo
+            let act_probs = tf.exp(log_act_probs);
+            value = value.dataSync();
+            return [act_probs, value];
+        });
+        return res;
+
     }
 
     policy_value_fn(board) {
@@ -160,8 +158,7 @@ module.exports = class PolicyValueNet {
 
         // perform a training step
         state_batch = nj.transpose(state_batch, [0, 2, 3, 1]);
-        let t = tf.tensor(state_batch.tolist());
-        state_batch = t;
+        state_batch = tf.tensor(state_batch.tolist());
 
         let mp = [];
         mcts_probs.map(item => {
@@ -175,6 +172,11 @@ module.exports = class PolicyValueNet {
         let res = await this.model.fit(state_batch, [mcts_probs, winner_batch], {}).catch(e => {
             console.error(e);
         });
+
+        state_batch.dispose();
+        mcts_probs.dispose();
+        winner_batch.dispose();
+
         // let loss;
         // this.optimizer.minimize(() => {
         //     let lossT = this.loss(this.f(state_batch), [mcts_probs, winner_batch]);
