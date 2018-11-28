@@ -4,9 +4,8 @@ const MCTSPlayer = require('./mcts_alphaZero');
 const MCTS_Pure = require('./mcts_pure');
 const _ = require('lodash');
 const nj = require('numjs');
-require('@tensorflow/tfjs-node');
 const tf = require('@tensorflow/tfjs');
-const fs = require('fs');
+require('@tensorflow/tfjs-node');
 
 module.exports = class Trainpipeline {
     constructor(config = {}, init_model = null) {
@@ -40,9 +39,7 @@ module.exports = class Trainpipeline {
         } else {
             this.policy_value_net = new PolicyValueNet(width, height);
         }
-        this.mcts_player = new MCTSPlayer(this.policy_value_net.policy_value_fn.bind(this.policy_value_net), this.c_puct, this.n_playout, 1);
-        // todo
-        // this.mcts_player = new MCTS_Pure(this.c_puct, this.n_playout);
+        this.mcts_player = new MCTSPlayer(this.policy_value_net.policy_value_fn.bind(this.policy_value_net), this.c_puct, this.n_playout);
     }
 
     async run() {
@@ -60,14 +57,14 @@ module.exports = class Trainpipeline {
                 let win_ratio = this.policy_evaluate();
                 console.log(win_ratio);
                 console.log('SAVING!!!');
-                // await this.policy_value_net.save_model(`file:///tmp/my-model-1`);
+                await this.policy_value_net.save_model(`file://./current_model_${this.board_width}*${this.board_height}_${this.n_in_row}`);
                 console.log('SAVED');
                 if (win_ratio > this.best_win_ratio) {
                     console.log(`New best policy !`);
                     this.best_win_ratio = win_ratio;
                     // localStorage.setItem('best_win_ratio', win_ratio);
                     console.log('SAVING!!!');
-                    // await this.policy_value_net.save_model(`file:///tmp/my-model-1`);
+                    await this.policy_value_net.save_model(`file://./best_model_${this.board_width}*${this.board_height}_${this.n_in_row}`);
                     console.log('SAVED');
                     if (this.best_win_ratio === 1 && this.pure_mcts_playout_num < 5000) {
                         this.pure_mcts_playout_num += 1000;
@@ -80,14 +77,10 @@ module.exports = class Trainpipeline {
 
     async collect_selfplay_data(n_games = 1) {
         for (let i of _.range(n_games)) {
-            let [winner, play_data] = await this.game.start_self_play(this.mcts_player, this.temp, 1);
+            let [winner, play_data] = await this.game.start_self_play(this.mcts_player, this.temp, 0);
             // console.log(play_data);
             this.episode_len = play_data.length;
 
-            fs.writeFileSync('./ttt', play_data, (err) => {
-                if (err) throw err;
-                console.log('文件已保存');
-            });
             // 获取相同情况棋盘数据
             play_data = this.get_equi_data(play_data);
 
@@ -178,12 +171,6 @@ module.exports = class Trainpipeline {
             console.log(`评价模型第${i}局`);
             let winner = this.game.start_play(current_mcts_player, pure_mcts_player, i % 2, 1);
             win_cnt[winner.toString()] += 1;
-            if (win_cnt[2] >= 2) {
-                console.log(`输了2局，注意评价网络`);
-                win_cnt['1'] = 0;
-                win_cnt['-1'] = 0;
-                break;
-            }
         }
         let win_ratio = (win_cnt['1'] + 0.5 * win_cnt['-1']) / n_games;
         console.log(win_ratio);

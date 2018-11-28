@@ -5,7 +5,6 @@ const tf = require('@tensorflow/tfjs');
 
 const {zip} = require('./utils');
 
-tf.setBackend('tensorflow');
 
 class logSoftmax extends tf.layers.Layer {
     constructor(config) {
