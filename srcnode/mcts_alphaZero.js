@@ -195,8 +195,6 @@ module.exports = class MTCSPlayer {
         if (sensible_moves.length > 0) {
             // 棋盘未耗尽时
             let {acts, probs} = this.mcts.get_move_probs(board, temp);  // 获取落子以及对应的落子概率
-            // todo
-            // move_probs[...acts]= probs  // 将概率转到move_probs列表中
             acts.map((val, index) => {
                 move_probs.set(val, probs.get(index));
             });
@@ -222,8 +220,6 @@ module.exports = class MTCSPlayer {
 
                 this.mcts.update_with_move(-1);
             }
-            // location = board.move_to_location(move)
-            //                print("AI move: %d,%d\n" % (location[0], location[1]))
             // 选择返回落子和相应的概率，还是只返回落子，因为自博弈时需要保存概率来训练网络，而真正落子时只要知道move就行了
             if (return_prob) {
                 return {move, move_probs};

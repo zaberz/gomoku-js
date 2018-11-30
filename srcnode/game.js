@@ -49,7 +49,6 @@ class Board {
 
     current_state() {
         let square_state = nj.zeros([4, this.width, this.height]);
-
         if (this.states) {
             let moves = Object.keys(this.states);
             let move_curr = moves.filter(item => {
@@ -77,6 +76,7 @@ class Board {
                 }
             }
         }
+        square_state = square_state.slice(null, [null, null, -1], null);
         return square_state;
     }
 

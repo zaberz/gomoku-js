@@ -4,6 +4,7 @@ require('@tensorflow/tfjs-node');
 const tf = require('@tensorflow/tfjs');
 
 const {zip} = require('./utils');
+const fs = require('fs');
 
 class logSoftmax extends tf.layers.Layer {
     constructor(config) {
@@ -84,20 +85,11 @@ module.exports = class PolicyValueNet {
         // output the score of evaluation on current state
         this.evaluation_fc2 = tf.layers.dense({units: 1, activation: 'tanh'}).apply(this.evaluation_fc1);
 
-        this.model = tf.model({inputs: this.input_state, outputs: [this.action_fc, this.evaluation_fc2]});
-
-        // this.labels = tf.input({shape: [1]});
-        //
-        // this.value_loss = (pred, label) => {
-        //     return pred.sub(label).square().mean()
-        // };
-        //
-        // this.mcts_probs = tf.input({shape: [board_height * board_width]});
-        // this.policy_loss = () => tf.neg(tf.mean(tf.sum(tf.mul(this.mcts_probs, this.action_fc), 1)));
         let l2_penalty_beta = 1e-4;
         let l2_penalty = tf.regularizers.l2({l2: l2_penalty_beta});
 
-        this.optimizer = tf.train.adam(this.learning_rate);
+        this.model = tf.model({inputs: this.input_state, outputs: [this.action_fc, this.evaluation_fc2]});
+
         if (model_file) {
             this.restore_model(model_file);
         }
@@ -120,7 +112,9 @@ module.exports = class PolicyValueNet {
             a = [...a];
             let shape = act_probs.shape;
             act_probs = nj.array(a).reshape(shape).tolist();
-            value = value.dataSync()[0];
+            value = value.dataSync();
+
+            // fs.appendFileSync('data', [value, '\r\n']);
             return [act_probs, value];
         });
 
@@ -136,6 +130,7 @@ module.exports = class PolicyValueNet {
 
         let current_state = board.current_state();
         let [act_probs, value] = this.policy_value(current_state);
+        value = value[0];
         act_probs = act_probs[0];
         act_probs = legal_position.map(item => {
             return act_probs[item];
@@ -145,7 +140,7 @@ module.exports = class PolicyValueNet {
 
     };
 
-    async train_step(state_batch, mcts_probs, winner_batch, lr) {
+    async train_step(state_batch, mcts_probs, winner_batch, lr, batchSize = 512, epochs = 1) {
 
         this.optimizer = tf.train.adam(lr);
         let loss = function (pred, label) {
@@ -161,18 +156,23 @@ module.exports = class PolicyValueNet {
 
         // perform a training step
         state_batch = nj.transpose(state_batch, [0, 2, 3, 1]);
+
         state_batch = tf.tensor(state_batch.tolist());
 
         let mp = [];
         mcts_probs.map(item => {
             mp = mp.concat(item.selection.data);
         });
+
         mcts_probs = tf.tensor(mp, [mcts_probs.length, this.board_width * this.board_height]);
 
         // winner_batch = nj.reshape(winner_batch, (-1, 1));
         winner_batch = tf.tensor(winner_batch, [winner_batch.length, 1]);
 
-        let res = await this.model.fit(state_batch, [mcts_probs, winner_batch], {}).catch(e => {
+        let res = await this.model.fit(state_batch, [mcts_probs, winner_batch], {
+            batchSize: batchSize,
+            epochs: epochs,
+        }).catch(e => {
             console.error(e);
         });
 
@@ -197,8 +197,8 @@ module.exports = class PolicyValueNet {
         await this.model.save(model_file);
     }
 
-    restore_model(model_file) {
-        tf.loadModel(model_file).then(model => {
+    async restore_model(model_file) {
+        await tf.loadModel(model_file).then(model => {
             this.model = model;
         }).catch(e => {
             console.log(`best model not found, auto create`);

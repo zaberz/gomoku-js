@@ -1,5 +1,6 @@
 const {Board, Game} = require('./game');
-const PolicyValueNet = require('./policy_value_net_tensorflow');
+// const PolicyValueNet = require('./policy_value_net_tensorflow');
+const PolicyValueNet = require('./policy_value_net_keras');
 const MCTSPlayer = require('./mcts_alphaZero');
 const MCTS_Pure = require('./mcts_pure');
 const _ = require('lodash');
@@ -7,8 +8,10 @@ const nj = require('numjs');
 const tf = require('@tensorflow/tfjs');
 require('@tensorflow/tfjs-node');
 
+const fs = require('fs');
+
 module.exports = class Trainpipeline {
-    constructor(config = {}, init_model = null) {
+    constructor(config = {}) {
         let width = this.board_width = config.width;
         let height = this.board_height = config.height;
         let n_in_row = this.n_in_row = config.n_in_row;
@@ -18,6 +21,9 @@ module.exports = class Trainpipeline {
 
         this.game_batch_num = 1500;
         this.batch_size = 512;
+        // this.buffer_size = 2
+
+        // this.batch_size = 2;
         this.check_freq = 20;
         this.epochs = 5;
 
@@ -32,23 +38,27 @@ module.exports = class Trainpipeline {
         this.kl_targ = 0.02;
         this.best_win_ratio = 0.0;
         this.pure_mcts_playout_num = 1000;
+        // this.init_model = init_model;
+    }
 
+    async run(init_model) {
+        let width = this.board_width;
+        let height = this.board_height;
         if (init_model) {
             this.policy_value_net = new PolicyValueNet(width, height, init_model);
+            await this.policy_value_net.restore_model(init_model);
         } else {
             this.policy_value_net = new PolicyValueNet(width, height);
         }
         this.mcts_player = new MCTSPlayer(this.policy_value_net.policy_value_fn.bind(this.policy_value_net), this.c_puct, this.n_playout);
-    }
 
-    async run() {
         for (let i of _.range(this.game_batch_num)) {
             await this.collect_selfplay_data(this.play_batch_size);
-            console.log(`batch i:${i},episode_len:${this.episode_len}`);
+            let memory_used = tf.memory();
+            console.log(`batch i:${i},episode_len:${this.episode_len};num_tensors:${memory_used.numTensors};num_bytes: ${memory_used.numBytes}`);
             if (this.data_buffer.length > this.batch_size) {
                 this.has_update = true;
                 let [loss, entropy] = await this.policy_update();
-                console.log(loss);
             }
 
             if ((i + 1) % this.check_freq === 0 && this.has_update) {
@@ -77,7 +87,6 @@ module.exports = class Trainpipeline {
     async collect_selfplay_data(n_games = 1) {
         for (let i of _.range(n_games)) {
             let [winner, play_data] = await this.game.start_self_play(this.mcts_player, this.temp, 0);
-            // console.log(play_data);
             this.episode_len = play_data.length;
 
             // 获取相同情况棋盘数据
@@ -123,30 +132,34 @@ module.exports = class Trainpipeline {
     async policy_update() {
         // update the policy-value net
         let mini_batch = _.sampleSize(this.data_buffer, this.batch_size);
-
-        // let mini_batch = this.data_buffer;
         // this.data_buffer = [];
         let state_batch = [];
         let mcts_probs_batch = [];
         let winner_batch = [];
         for (let data of mini_batch) {
             state_batch = state_batch.concat(data[0].selection.data);
-            mcts_probs_batch.push(data[1]);
+            mcts_probs_batch.push(data[1].tolist());
             winner_batch.push(data[2]);
         }
+
         state_batch = nj.array(state_batch).reshape(-1, 4, this.board_width, this.board_height);
         let [old_probs, old_v] = this.policy_value_net.policy_value(state_batch);
         old_probs = tf.tensor(old_probs);
+
         let loss;
         let entropy;
         let kl;
-
+        let new_v;
         for (let i of _.range(this.epochs)) {
 
-            [loss, entropy] = await this.policy_value_net.train_step(state_batch, mcts_probs_batch, winner_batch, this.learn_rate * this.lr_multiplier);
+            [loss, entropy] = await this.policy_value_net.train_step(state_batch, mcts_probs_batch, winner_batch,
+                this.learn_rate * this.lr_multiplier,
+                this.batch_size,
+                // this.epochs,
+            );
 
-            let [new_probs, new_v] = this.policy_value_net.policy_value(state_batch);
-
+            let [new_probs, v] = this.policy_value_net.policy_value(state_batch);
+            new_v = v;
             new_probs = tf.tensor(new_probs);
             kl = tf.tidy(() => {
                 let kl = tf.mean(tf.sum(old_probs.mul(tf.log(old_probs.add(1e-10)).sub(tf.log(new_probs.add(1e-10)))), 1));
@@ -165,6 +178,9 @@ module.exports = class Trainpipeline {
             this.lr_multiplier *= 1.5;
         }
 
+        let explained_var_old = (1 - Math.pow(nj.std(nj.array(winner_batch).subtract(nj.array([...old_v]).flatten())) / (nj.std(nj.array(winner_batch)) || 1), 2));
+        let explained_var_new = (1 - Math.pow(nj.std(nj.array(winner_batch).subtract(nj.array([...new_v]).flatten())) / (nj.std(nj.array(winner_batch)) || 1), 2));
+        console.log(`kl:${kl};lr_multiplier:${this.lr_multiplier};loss:${loss};entropy:${entropy};old_v:${explained_var_old};new_v:${explained_var_new};`);
         old_probs.dispose();
 
         return [loss, entropy];

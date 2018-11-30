@@ -1,6 +1,7 @@
 import './css/index.css';
 import Humanplay from './human_play';
 import Trainpipeline from './train';
+import * as tf from '@tensorflow/tfjs';
 
 let train;
 
