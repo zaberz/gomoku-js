@@ -25,7 +25,7 @@ function start_train() {
         let best_model = `indexeddb://best_policy_model_${size}*${size}_${n_in_row}`;
 
         train = new Trainpipeline({width: size, height: size, n_in_row}, best_model);
-        train.run();
+        train.run(best_model);
     }
 }
 

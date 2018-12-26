@@ -1,5 +1,5 @@
 import {Board, Game} from './game';
-import PolicyValueNet from './policy_value_net_tensorflow';
+import PolicyValueNet from './policy_value_net_keras';
 import MCTSPlayer from './mcts_alphaZero';
 import MCTS_Pure from './mcts_pure';
 import * as _ from 'lodash';
@@ -34,16 +34,24 @@ export default class Trainpipeline {
         this.pure_mcts_playout_num = 1000;
 
         this.isStop = false;
+        // if (init_model) {
+        //     this.policy_value_net = new PolicyValueNet(width, height, init_model);
+        // } else {
+        //     this.policy_value_net = new PolicyValueNet(width, height);
+        // }
+        // this.mcts_player = new MCTSPlayer(this.policy_value_net.policy_value_fn.bind(this.policy_value_net), this.c_puct, this.n_playout, 1);
+    }
 
+    async run(init_model) {
+        let width = this.board_width;
+        let height = this.board_height;
         if (init_model) {
             this.policy_value_net = new PolicyValueNet(width, height, init_model);
+            await this.policy_value_net.restore_model(init_model);
         } else {
             this.policy_value_net = new PolicyValueNet(width, height);
         }
-        this.mcts_player = new MCTSPlayer(this.policy_value_net.policy_value_fn.bind(this.policy_value_net), this.c_puct, this.n_playout, 1);
-    }
-
-    async run() {
+        this.mcts_player = new MCTSPlayer(this.policy_value_net.policy_value_fn.bind(this.policy_value_net), this.c_puct, this.n_playout);
 
         for (let i of _.range(this.game_batch_num)) {
             if (await this.check_is_stop()) {
