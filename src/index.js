@@ -15,7 +15,6 @@ function get_params() {
         alert('请输入棋盘信息再开始');
         return [];
     }
-
 }
 
 function start_train() {
@@ -47,11 +46,20 @@ function human_play() {
     }
 }
 
+function pure_player() {
+    let [size, n_in_row] = get_params();
+    if (size) {
+        let human_play = new Humanplay(size, n_in_row);
+        human_play.runWithPurePlayer();
+    }
+}
+
 function init_click_event() {
     document.getElementById('start_train').addEventListener('click', start_train);
     document.getElementById('use_online_model').addEventListener('click', use_online_model);
     document.getElementById('human_play').addEventListener('click', human_play);
     document.getElementById('stop_train').addEventListener('click', stop_train);
+    document.getElementById('pure_play').addEventListener('click', pure_player);
 }
 
 init_click_event();

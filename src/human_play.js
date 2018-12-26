@@ -1,6 +1,7 @@
 import {Game, Board} from './game';
 import PolicyValueNet from './policy_value_net_tensorflow';
 import MCTSPlayer from './mcts_alphaZero';
+import PurePlayer from './mcts_pure';
 
 class Human {
     constructor(game) {
@@ -46,6 +47,11 @@ export default class Humanplay {
 
     run() {
         this.game.start_human_play(this.human_payer, this.mcts_player, 0, true);
+    }
+
+    runWithPurePlayer() {
+        const pure_player = new PurePlayer();
+        this.game.start_human_play(this.human_payer, pure_player, 0, true);
     }
 }
 
